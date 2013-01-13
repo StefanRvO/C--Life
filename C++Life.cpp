@@ -6,11 +6,15 @@
 #include<time.h>
 #include "C++Life.h"
 #include <math.h>
+#include <thread>
+
+#define threading 
+    using namespace std;
 
 const int SCREENSIZE_x=1300;
 const int SCREENSIZE_y=700;
 
-const int UNITSIZE=2;
+const int UNITSIZE=5;
 int GOTHROUGH=0;
 volatile int ticks = 0;
 BITMAP *buffer;
@@ -21,7 +25,7 @@ void ticker()
     ticks++;
 }
 END_OF_FUNCTION(ticker)
- int updates_per_second = 1;
+ int updates_per_second = 100000;
 
 
 class Tick
@@ -142,7 +146,7 @@ void Tick::nexttick()
 }
 
 
-
+Tick game;
 
 
 
@@ -182,14 +186,17 @@ unit::unit(int pixelsizex, int pixelsizey=0)   //constructor
 }
 
 
-void DrawScreen(Tick &game, unit &U)
+void DrawScreen( unit U)
 {
 //Clear Screen
+    #ifdef threading
+    while (1){
+    #endif
     clear_to_color( buffer, makecol( 0, 0, 0));
     //Draw the shit
-    for (int x=0; x<game.boardsizex; x++)
+    for (int x=0; x<U.gridsize[0]; x++)
     {
-        for (int y=0; y<game.boardsizey; y++)
+        for (int y=0; y<U.gridsize[1]; y++)
         {
             if(game.CellArray[x][y]==1)
             {
@@ -203,6 +210,10 @@ void DrawScreen(Tick &game, unit &U)
     acquire_screen();
     blit(buffer, screen, 0, 0, 0, 0, SCREENSIZE_x, SCREENSIZE_y);
     release_screen();
+    //cout << "Drawing" << /*game.generation <<*/ endl;
+    #ifdef threading
+    }
+    #endif
 }
 void Init()
 {
@@ -213,7 +224,7 @@ void Init()
     LOCK_FUNCTION(ticker);
     install_int_ex(ticker, BPS_TO_TIMER(updates_per_second));
     set_gfx_mode( GFX_AUTODETECT_WINDOWED, SCREENSIZE_x, SCREENSIZE_y, 0, 0);
-    request_refresh_rate(30);
+    request_refresh_rate(1000);
 }
 
 
@@ -224,7 +235,7 @@ int main()
  //   cout << "1" << endl;
     unit U(UNITSIZE);
  //   cout << "1" << endl;
-    Tick  game;
+   // Tick  game;
  //   cout << "1" << endl;
     int gameseed=rand()% time(NULL);
     game.Generate(gameseed,U.gridsize[0],U.gridsize[1]);
@@ -233,6 +244,10 @@ int main()
  //   cout << "1" << endl;
     int w=0;
     buffer=create_bitmap(SCREENSIZE_x, SCREENSIZE_y);
+    #ifdef threading
+    thread t1(DrawScreen,U);
+    cout << "Threading" << endl;
+    #endif
     while(1)
     {
         while (ticks==0)
@@ -242,8 +257,12 @@ int main()
         while(ticks>0)
         {
             int old_ticks=ticks;
-            DrawScreen(game,U);
+            //thread t1(DrawScreen,game,U);
             game.nexttick();
+            #ifndef threading
+            DrawScreen(U);
+            #endif
+            //cout << "ticking" << game.generation << endl;
 
 
             ticks--;
@@ -251,14 +270,19 @@ int main()
             break;
             }
         }
-        if (rand()% static_cast<int>(pow(updates_per_second,1.25))==0)
+        /*if (rand()% static_cast<int>(pow(updates_per_second,1.1))==0)
         {
             updates_per_second++;
             install_int_ex(ticker, BPS_TO_TIMER(updates_per_second));
-        }
-        cout  << game.generation << "-- -- "<< updates_per_second << endl;
+        }*/
+        //if(game.generation>100000)
+        //return 0;
+        //cout  << game.generation << "-- -- "<< updates_per_second << endl;
 
     }
+    #ifdef threading
+    t1.join();
+    #endif
     return 0;
 }
 END_OF_MAIN()
